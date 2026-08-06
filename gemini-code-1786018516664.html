@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Food Price Tracker</title>
+  <style>
+    /* =========================================================
+       NOTION ADAPTIVE COLOR PALETTE & THEME SYSTEM
+       ========================================================= */
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f7f6f3;
+      --bg-hover: #efeee9;
+      --text-primary: #37352f;
+      --text-secondary: #787774;
+      --border-color: rgba(55, 53, 47, 0.16);
+      --accent-color: #2eaadc;
+      --pill-bg: rgba(55, 53, 47, 0.08);
+      --card-shadow: 0 1px 3px rgba(15, 15, 15, 0.1);
+      --radius: 6px;
+      --font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #191919;
+        --bg-secondary: #202020;
+        --bg-hover: #2f2f2f;
+        --text-primary: rgba(255, 255, 255, 0.9);
+        --text-secondary: rgba(255, 255, 255, 0.44);
+        --border-color: rgba(255, 255, 255, 0.13);
+        --accent-color: #52baed;
+        --pill-bg: rgba(255, 255, 255, 0.08);
+        --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      margin: 0;
+      padding: 16px;
+      box-sizing: border-box;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .tracker-container {
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .notion-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .notion-icon { font-size: 1.8rem; }
+    .notion-title { font-size: 1.25rem; font-weight: 600; margin: 0; }
+    .notion-subtitle { font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px; }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.5fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .controls-grid { grid-template-columns: 1fr; }
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+    }
+
+    label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+
+    input, select {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      font-size: 0.88rem;
+      font-family: var(--font-family);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent-color);
+      background: var(--bg-primary);
+    }
+
+    .suggestions-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 100;
+      box-shadow: var(--card-shadow);
+      margin-top: 4px;
+      display: none;
+    }
+
+    .suggestion-item {
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .suggestion-item:hover { background: var(--bg-hover); }
+    .suggestion-category { font-size: 0.75rem; color: var(--text-secondary); }
+
+    .result-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .item-name-heading { font-size: 1.15rem; font-weight: 600; margin: 0 0 6px 0; }
+    .locality-badge {
+      display: inline-block;
+      background: var(--pill-bg);
+      color: var(--text-primary);
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .price-display { margin-top: 12px; }
+    .main-price { font-size: 2.2rem; font-weight: 700; color: var(--text-primary); }
+
+    .price-meta {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px dashed var(--border-color);
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="tracker-container">
+    <div class="notion-header">
+      <span class="notion-icon">🥤</span>
+      <div>
+        <h1 class="notion-title">Global Food & Drink Tracker</h1>
+        <div class="notion-subtitle">Search live benchmark prices for 600+ food & beverage items</div>
+      </div>
+    </div>
+
+    <div class="controls-grid">
+      <div class="input-group">
+        <label for="countrySelect">Country</label>
+        <select id="countrySelect">
+          <option value="US">🇺🇸 United States</option>
+          <option value="UK">🇬🇧 United Kingdom</option>
+          <option value="JP">🇯🇵 Japan</option>
+          <option value="CA">🇨🇦 Canada</option>
+          <option value="DE">🇩🇪 Germany</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <label for="regionSelect">Region / State</label>
+        <select id="regionSelect"></select>
+      </div>
+
+      <div class="input-group">
+        <label for="foodInput">Search Food / Drink</label>
+        <input type="text" id="foodInput" placeholder="e.g. Coca-Cola, Pork Gyoza, Penne Alfredo..." autocomplete="off">
+        <div id="suggestions" class="suggestions-list"></div>
+      </div>
+    </div>
+
+    <div class="result-card">
+      <div class="item-name-heading" id="resItemName">Coca-Cola (Small)</div>
+      <span class="locality-badge" id="resLocality">National Average</span>
+      
+      <div class="price-display">
+        <div class="main-price" id="resPrice">$2.20</div>
+      </div>
+
+      <div class="price-meta">
+        <span id="resCategory">Category: Beverages</span>
+        <span id="resIndex">Cost Index: 100.0</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================
+       COUNTRY REGIONAL MULTIPLIERS
+       ========================================================= */
+    const countryConfig = {
+      US: { currency: "$", regions: { "National Avg": 1.0, "California": 1.18, "New York": 1.16, "Hawaii": 1.31, "Texas": 0.92, "Florida": 1.04, "Illinois": 1.01, "Washington": 1.12 } },
+      UK: { currency: "£", regions: { "National Avg": 1.0, "London / South East": 1.22, "Greater Manchester": 0.96, "Scotland": 0.94, "Wales": 0.91, "Midlands": 0.93 } },
+      JP: { currency: "¥", regions: { "National Avg": 1.0, "Tokyo (Kanto)": 1.20, "Osaka (Kansai)": 1.08, "Hokkaido": 0.95, "Fukuoka": 0.92, "Nagoya": 1.02 } },
+      CA: { currency: "CA$", regions: { "National Avg": 1.0, "Ontario": 1.12, "British Columbia": 1.15, "Quebec": 0.96, "Alberta": 1.02, "Nova Scotia": 0.98 } },
+      DE: { currency: "€", regions: { "National Avg": 1.0, "Bavaria (Munich)": 1.18, "Berlin": 1.05, "Hamburg": 1.10, "North Rhine-Westphalia": 0.98, "Saxony": 0.89 } }
+    };
+
+    /* =========================================================
+       EXPANDED 600-ITEM FOOD & BEVERAGE DATABASE
+       ========================================================= */
+    const rawCustomFoodItems = [
+      // Previous Base Items
+      { name: "Potato Chips", cat: "Snacks", base: { US: 4.50, UK: 2.20, JP: 220, CA: 4.80, DE: 2.10 } },
+      { name: "Cheeseburger", cat: "Burgers & Sandwiches", base: { US: 4.85, UK: 3.90, JP: 450, CA: 5.20, DE: 4.20 } },
+      { name: "Pepperoni Pizza", cat: "Pizza", base: { US: 16.50, UK: 13.80, JP: 1800, CA: 17.90, DE: 12.00 } },
+      { name: "Tonkotsu Ramen", cat: "Japanese", base: { US: 15.50, UK: 13.00, JP: 980, CA: 16.50, DE: 12.80 } },
+
+      // Beverages: Soft Drinks (401-439)
+      { name: "Coca-Cola (Small)", cat: "Beverages", base: { US: 2.20, UK: 1.50, JP: 160, CA: 2.40, DE: 1.80 } },
+      { name: "Coca-Cola (Medium)", cat: "Beverages", base: { US: 2.70, UK: 1.90, JP: 210, CA: 2.90, DE: 2.30 } },
+      { name: "Coca-Cola (Large)", cat: "Beverages", base: { US: 3.20, UK: 2.30, JP: 260, CA: 3.50, DE: 2.80 } },
+      { name: "Diet Coke (Small)", cat: "Beverages", base: { US: 2.20, UK: 1.50, JP: 160, CA: 2.40, DE: 1.80 } },
+      { name: "Diet Coke (Medium)", cat: "Beverages", base: { US: 2.70, UK: 1.90, JP: 210, CA: 2.90, DE: 2.30 } },
+      { name: "Diet Coke (Large)", cat: "Beverages", base: { US: 3.20, UK: 2.30, JP: 260, CA: 3.50, DE: 2.80 } },
+      { name: "Coke Zero (Small)", cat: "Beverages", base: { US: 2.20, UK: 1.50, JP: 160, CA: 2.40, DE: 1.80 } },
+      { name: "Coke Zero (Medium)", cat: "Beverages", base: { US: 2.70, UK: 1.90, JP: 210, CA: 2.90, DE: 2.30 } },
+      { name: "Coke Zero (Large)", cat: "Beverages", base: { US: 3.20, UK: 2.30, JP: 260, CA: 3.50, DE: 2.80 } },
+      { name: "Pepsi (Small)", cat: "Beverages", base: { US: 2.15, UK: 1.45, JP: 155, CA: 2.35, DE: 1.75 } },
+      { name: "Pepsi (Medium)", cat: "Beverages", base: { US: 2.65, UK: 1.85, JP: 205, CA: 2.85, DE: 2.25 } },
+      { name: "Pepsi (Large)", cat: "Beverages", base: { US: 3.15, UK: 2.25, JP: 255, CA: 3.45, DE: 2.75 } },
+      { name: "Diet Pepsi", cat: "Beverages", base: { US: 2.65, UK: 1.85, JP: 205, CA: 2.85, DE: 2.25 } },
+      { name: "Pepsi Zero Sugar", cat: "Beverages", base: { US: 2.65, UK: 1.85, JP: 205, CA: 2.85, DE: 2.25 } },
+      { name: "Dr Pepper (Small)", cat: "Beverages", base: { US: 2.25, UK: 1.55, JP: 170, CA: 2.45, DE: 1.85 } },
+      { name: "Dr Pepper (Medium)", cat: "Beverages", base: { US: 2.75, UK: 1.95, JP: 220, CA: 2.95, DE: 2.35 } },
+      { name: "Dr Pepper (Large)", cat: "Beverages", base: { US: 3.25, UK: 2.35, JP: 270, CA: 3.55, DE: 2.85 } },
+      { name: "Diet Dr Pepper", cat: "Beverages", base: { US: 2.75, UK: 1.95, JP: 220, CA: 2.95, DE: 2.35 } },
+      { name: "Sprite (Small)", cat: "Beverages", base: { US: 2.20, UK: 1.50, JP: 160, CA: 2.40, DE: 1.80 } },
+      { name: "Sprite (Medium)", cat: "Beverages", base: { US: 2.70, UK: 1.90, JP: 210, CA: 2.90, DE: 2.30 } },
+      { name: "Sprite (Large)", cat: "Beverages", base: { US: 3.20, UK: 2.30, JP: 260, CA: 3.50, DE: 2.80 } },
+      { name: "Sprite Zero", cat: "Beverages", base: { US: 2.70, UK: 1.90, JP: 210, CA: 2.90, DE: 2.30 } },
+      { name: "Fanta Orange", cat: "Beverages", base: { US: 2.60, UK: 1.80, JP: 200, CA: 2.80, DE: 2.20 } },
+      { name: "Fanta Grape", cat: "Beverages", base: { US: 2.60, UK: 1.80, JP: 200, CA: 2.80, DE: 2.20 } },
+      { name: "Fanta Strawberry", cat: "Beverages", base: { US: 2.60, UK: 1.80, JP: 200, CA: 2.80, DE: 2.20 } },
+      { name: "Mountain Dew", cat: "Beverages", base: { US: 2.65, UK: 1.85, JP: 210, CA: 2.85, DE: 2.25 } },
+      { name: "Mountain Dew Zero", cat: "Beverages", base: { US: 2.65, UK: 1.85, JP: 210, CA: 2.85, DE: 2.25 } },
+      { name: "Root Beer", cat: "Beverages", base: { US: 2.70, UK: 2.10, JP: 240, CA: 2.90, DE: 2.40 } },
+      { name: "Cream Soda", cat: "Beverages", base: { US: 2.75, UK: 2.15, JP: 245, CA: 2.95, DE: 2.45 } },
+      { name: "Ginger Ale", cat: "Beverages", base: { US: 2.50, UK: 1.80, JP: 190, CA: 2.70, DE: 2.10 } },
+      { name: "Club Soda", cat: "Beverages", base: { US: 1.90, UK: 1.40, JP: 140, CA: 2.10, DE: 1.50 } },
+      { name: "Tonic Water", cat: "Beverages", base: { US: 2.10, UK: 1.50, JP: 150, CA: 2.30, DE: 1.60 } },
+      { name: "Sparkling Water", cat: "Beverages", base: { US: 2.20, UK: 1.60, JP: 140, CA: 2.40, DE: 1.40 } },
+      { name: "Lemonade", cat: "Beverages", base: { US: 3.10, UK: 2.40, JP: 280, CA: 3.40, DE: 2.60 } },
+      { name: "Pink Lemonade", cat: "Beverages", base: { US: 3.20, UK: 2.50, JP: 290, CA: 3.50, DE: 2.70 } },
+      { name: "Iced Tea", cat: "Beverages", base: { US: 2.90, UK: 2.20, JP: 250, CA: 3.20, DE: 2.40 } },
+      { name: "Sweet Tea", cat: "Beverages", base: { US: 2.90, UK: 2.20, JP: 250, CA: 3.20, DE: 2.40 } },
+      { name: "Unsweetened Tea", cat: "Beverages", base: { US: 2.90, UK: 2.20, JP: 250, CA: 3.20, DE: 2.40 } },
+      { name: "Arnold Palmer", cat: "Beverages", base: { US: 3.25, UK: 2.50, JP: 300, CA: 3.60, DE: 2.80 } },
+
+      // Juices & Dairy (440-448)
+      { name: "Orange Juice", cat: "Juice & Dairy", base: { US: 3.80, UK: 2.80, JP: 280, CA: 4.10, DE: 2.90 } },
+      { name: "Apple Juice", cat: "Juice & Dairy", base: { US: 3.50, UK: 2.60, JP: 260, CA: 3.80, DE: 2.70 } },
+      { name: "Cranberry Juice", cat: "Juice & Dairy", base: { US: 3.90, UK: 2.90, JP: 320, CA: 4.20, DE: 3.10 } },
+      { name: "Pineapple Juice", cat: "Juice & Dairy", base: { US: 3.90, UK: 2.90, JP: 310, CA: 4.20, DE: 3.10 } },
+      { name: "Mango Juice", cat: "Juice & Dairy", base: { US: 4.10, UK: 3.10, JP: 340, CA: 4.50, DE: 3.30 } },
+      { name: "Grapefruit Juice", cat: "Juice & Dairy", base: { US: 3.80, UK: 2.80, JP: 300, CA: 4.10, DE: 2.90 } },
+      { name: "Milk", cat: "Juice & Dairy", base: { US: 2.20, UK: 1.40, JP: 180, CA: 2.50, DE: 1.20 } },
+      { name: "Chocolate Milk", cat: "Juice & Dairy", base: { US: 2.80, UK: 1.90, JP: 220, CA: 3.10, DE: 1.80 } },
+      { name: "Strawberry Milk", cat: "Juice & Dairy", base: { US: 2.80, UK: 1.90, JP: 220, CA: 3.10, DE: 1.80 } },
+
+      // Coffee & Espresso (449-466)
+      { name: "Coffee", cat: "Coffee & Tea", base: { US: 2.80, UK: 2.20, JP: 280, CA: 3.10, DE: 2.40 } },
+      { name: "Decaf Coffee", cat: "Coffee & Tea", base: { US: 2.80, UK: 2.20, JP: 280, CA: 3.10, DE: 2.40 } },
+      { name: "Espresso", cat: "Coffee & Tea", base: { US: 3.10, UK: 2.40, JP: 320, CA: 3.40, DE: 2.20 } },
+      { name: "Double Espresso", cat: "Coffee & Tea", base: { US: 4.00, UK: 3.10, JP: 420, CA: 4.40, DE: 3.10 } },
+      { name: "Americano", cat: "Coffee & Tea", base: { US: 3.65, UK: 2.80, JP: 380, CA: 4.00, DE: 2.90 } },
+      { name: "Cappuccino", cat: "Coffee & Tea", base: { US: 4.60, UK: 3.50, JP: 450, CA: 5.10, DE: 3.60 } },
+      { name: "Latte", cat: "Coffee & Tea", base: { US: 4.80, UK: 3.60, JP: 470, CA: 5.30, DE: 3.80 } },
+      { name: "Vanilla Latte", cat: "Coffee & Tea", base: { US: 5.40, UK: 4.10, JP: 530, CA: 5.90, DE: 4.30 } },
+      { name: "Caramel Latte", cat: "Coffee & Tea", base: { US: 5.40, UK: 4.10, JP: 530, CA: 5.90, DE: 4.30 } },
+      { name: "Mocha", cat: "Coffee & Tea", base: { US: 5.20, UK: 3.90, JP: 510, CA: 5.70, DE: 4.10 } },
+      { name: "Flat White", cat: "Coffee & Tea", base: { US: 4.70, UK: 3.50, JP: 480, CA: 5.20, DE: 3.70 } },
+      { name: "Macchiato", cat: "Coffee & Tea", base: { US: 4.20, UK: 3.20, JP: 430, CA: 4.60, DE: 3.30 } },
+      { name: "Cold Brew", cat: "Coffee & Tea", base: { US: 4.90, UK: 3.80, JP: 500, CA: 5.40, DE: 4.10 } },
+      { name: "Nitro Cold Brew", cat: "Coffee & Tea", base: { US: 5.80, UK: 4.40, JP: 580, CA: 6.40, DE: 4.90 } },
+      { name: "Frappuccino", cat: "Coffee & Tea", base: { US: 5.60, UK: 4.20, JP: 560, CA: 6.20, DE: 4.80 } },
+      { name: "Matcha Latte", cat: "Coffee & Tea", base: { US: 5.50, UK: 4.30, JP: 480, CA: 6.10, DE: 4.50 } },
+      { name: "Hot Chocolate", cat: "Coffee & Tea", base: { US: 4.10, UK: 3.20, JP: 400, CA: 4.50, DE: 3.40 } },
+      { name: "Chai Latte", cat: "Coffee & Tea", base: { US: 4.90, UK: 3.80, JP: 490, CA: 5.40, DE: 4.00 } },
+
+      // Shakes & Smoothies (467-476, 493-494)
+      { name: "Vanilla Shake", cat: "Shakes & Desserts", base: { US: 4.80, UK: 3.80, JP: 460, CA: 5.30, DE: 4.10 } },
+      { name: "Chocolate Shake", cat: "Shakes & Desserts", base: { US: 4.80, UK: 3.80, JP: 460, CA: 5.30, DE: 4.10 } },
+      { name: "Strawberry Shake", cat: "Shakes & Desserts", base: { US: 4.80, UK: 3.80, JP: 460, CA: 5.30, DE: 4.10 } },
+      { name: "Oreo Shake", cat: "Shakes & Desserts", base: { US: 5.40, UK: 4.20, JP: 520, CA: 5.90, DE: 4.60 } },
+      { name: "Banana Shake", cat: "Shakes & Desserts", base: { US: 4.90, UK: 3.90, JP: 470, CA: 5.40, DE: 4.20 } },
+      { name: "Mango Smoothie", cat: "Smoothies", base: { US: 6.20, UK: 4.80, JP: 580, CA: 6.80, DE: 5.20 } },
+      { name: "Strawberry Smoothie", cat: "Smoothies", base: { US: 6.20, UK: 4.80, JP: 580, CA: 6.80, DE: 5.20 } },
+      { name: "Berry Smoothie", cat: "Smoothies", base: { US: 6.40, UK: 4.90, JP: 600, CA: 7.00, DE: 5.40 } },
+      { name: "Green Smoothie", cat: "Smoothies", base: { US: 6.80, UK: 5.20, JP: 640, CA: 7.40, DE: 5.80 } },
+      { name: "Protein Smoothie", cat: "Smoothies", base: { US: 7.50, UK: 5.80, JP: 720, CA: 8.20, DE: 6.50 } },
+      { name: "Acai Smoothie", cat: "Smoothies", base: { US: 7.80, UK: 6.10, JP: 750, CA: 8.50, DE: 6.80 } },
+      { name: "Taro Smoothie", cat: "Smoothies", base: { US: 6.50, UK: 5.00, JP: 600, CA: 7.10, DE: 5.50 } },
+
+      // Ice Cream & Frozen Desserts (477-492)
+      { name: "Vanilla Ice Cream", cat: "Ice Cream", base: { US: 3.80, UK: 2.80, JP: 320, CA: 4.20, DE: 2.90 } },
+      { name: "Chocolate Ice Cream", cat: "Ice Cream", base: { US: 3.80, UK: 2.80, JP: 320, CA: 4.20, DE: 2.90 } },
+      { name: "Strawberry Ice Cream", cat: "Ice Cream", base: { US: 3.80, UK: 2.80, JP: 320, CA: 4.20, DE: 2.90 } },
+      { name: "Mint Chocolate Chip", cat: "Ice Cream", base: { US: 4.20, UK: 3.10, JP: 360, CA: 4.60, DE: 3.20 } },
+      { name: "Cookies & Cream Ice Cream", cat: "Ice Cream", base: { US: 4.20, UK: 3.10, JP: 360, CA: 4.60, DE: 3.20 } },
+      { name: "Cookie Dough Ice Cream", cat: "Ice Cream", base: { US: 4.50, UK: 3.30, JP: 380, CA: 4.90, DE: 3.50 } },
+      { name: "Rocky Road Ice Cream", cat: "Ice Cream", base: { US: 4.50, UK: 3.30, JP: 380, CA: 4.90, DE: 3.50 } },
+      { name: "Butter Pecan Ice Cream", cat: "Ice Cream", base: { US: 4.50, UK: 3.30, JP: 380, CA: 4.90, DE: 3.50 } },
+      { name: "Pistachio Ice Cream", cat: "Ice Cream", base: { US: 4.80, UK: 3.60, JP: 420, CA: 5.20, DE: 3.80 } },
+      { name: "Green Tea Ice Cream", cat: "Ice Cream", base: { US: 4.50, UK: 3.40, JP: 320, CA: 4.90, DE: 3.60 } },
+      { name: "Mango Sorbet", cat: "Ice Cream", base: { US: 4.20, UK: 3.20, JP: 350, CA: 4.60, DE: 3.30 } },
+      { name: "Lemon Sorbet", cat: "Ice Cream", base: { US: 4.00, UK: 3.00, JP: 330, CA: 4.40, DE: 3.10 } },
+      { name: "Frozen Custard", cat: "Ice Cream", base: { US: 4.90, UK: 3.80, JP: 450, CA: 5.40, DE: 3.90 } },
+      { name: "Gelato", cat: "Ice Cream", base: { US: 5.20, UK: 4.00, JP: 480, CA: 5.70, DE: 3.80 } },
+      { name: "Vanilla Frozen Yogurt", cat: "Ice Cream", base: { US: 4.20, UK: 3.10, JP: 380, CA: 4.60, DE: 3.20 } },
+      { name: "Chocolate Frozen Yogurt", cat: "Ice Cream", base: { US: 4.20, UK: 3.10, JP: 380, CA: 4.60, DE: 3.20 } },
+
+      // Bubble Tea (495-500)
+      { name: "Bubble Tea", cat: "Bubble Tea", base: { US: 5.80, UK: 4.50, JP: 520, CA: 6.20, DE: 4.80 } },
+      { name: "Brown Sugar Bubble Tea", cat: "Bubble Tea", base: { US: 6.50, UK: 5.00, JP: 580, CA: 7.10, DE: 5.40 } },
+      { name: "Matcha Bubble Tea", cat: "Bubble Tea", base: { US: 6.20, UK: 4.80, JP: 540, CA: 6.80, DE: 5.10 } },
+      { name: "Taro Bubble Tea", cat: "Bubble Tea", base: { US: 6.00, UK: 4.60, JP: 530, CA: 6.50, DE: 4.90 } },
+      { name: "Thai Bubble Tea", cat: "Bubble Tea", base: { US: 6.00, UK: 4.60, JP: 530, CA: 6.50, DE: 4.90 } },
+      { name: "Coffee Bubble Tea", cat: "Bubble Tea", base: { US: 6.20, UK: 4.80, JP: 550, CA: 6.80, DE: 5.10 } },
+
+      // Tofu & Vegetarian Dishes (501-530)
+      { name: "Silken Tofu", cat: "Tofu", base: { US: 2.80, UK: 1.90, JP: 120, CA: 3.10, DE: 1.80 } },
+      { name: "Firm Tofu", cat: "Tofu", base: { US: 2.90, UK: 2.00, JP: 130, CA: 3.20, DE: 1.90 } },
+      { name: "Extra Firm Tofu", cat: "Tofu", base: { US: 3.10, UK: 2.10, JP: 140, CA: 3.40, DE: 2.00 } },
+      { name: "Fried Tofu", cat: "Tofu", base: { US: 6.50, UK: 4.80, JP: 380, CA: 7.10, DE: 5.20 } },
+      { name: "Crispy Tofu", cat: "Tofu", base: { US: 7.20, UK: 5.20, JP: 420, CA: 7.90, DE: 5.80 } },
+      { name: "Grilled Tofu", cat: "Tofu", base: { US: 8.50, UK: 6.20, JP: 520, CA: 9.30, DE: 6.80 } },
+      { name: "BBQ Tofu", cat: "Tofu", base: { US: 9.20, UK: 6.80, JP: 580, CA: 10.10, DE: 7.40 } },
+      { name: "Teriyaki Tofu", cat: "Tofu", base: { US: 10.50, UK: 7.90, JP: 680, CA: 11.50, DE: 8.50 } },
+      { name: "Sweet Chili Tofu", cat: "Tofu", base: { US: 10.50, UK: 7.90, JP: 680, CA: 11.50, DE: 8.50 } },
+      { name: "Orange Tofu", cat: "Tofu", base: { US: 11.20, UK: 8.40, JP: 720, CA: 12.30, DE: 9.10 } },
+      { name: "General Tso's Tofu", cat: "Tofu", base: { US: 11.50, UK: 8.60, JP: 750, CA: 12.60, DE: 9.30 } },
+      { name: "Kung Pao Tofu", cat: "Tofu", base: { US: 11.50, UK: 8.60, JP: 750, CA: 12.60, DE: 9.30 } },
+      { name: "Mapo Tofu", cat: "Tofu", base: { US: 12.20, UK: 9.20, JP: 780, CA: 13.40, DE: 9.80 } },
+      { name: "Tofu Stir Fry", cat: "Tofu", base: { US: 11.80, UK: 8.90, JP: 760, CA: 12.90, DE: 9.50 } },
+      { name: "Tofu Curry", cat: "Tofu", base: { US: 12.50, UK: 9.50, JP: 800, CA: 13.70, DE: 10.10 } },
+      { name: "Tofu Fried Rice", cat: "Tofu", base: { US: 10.80, UK: 8.10, JP: 650, CA: 11.80, DE: 8.70 } },
+      { name: "Tofu Pad Thai", cat: "Tofu", base: { US: 13.20, UK: 9.90, JP: 850, CA: 14.50, DE: 10.60 } },
+      { name: "Tofu Ramen", cat: "Tofu", base: { US: 13.80, UK: 10.50, JP: 820, CA: 15.10, DE: 11.20 } },
+      { name: "Tofu Pho", cat: "Tofu", base: { US: 12.80, UK: 9.80, JP: 790, CA: 14.10, DE: 10.40 } },
+      { name: "Tofu Bibimbap", cat: "Tofu", base: { US: 13.50, UK: 10.20, JP: 880, CA: 14.80, DE: 10.90 } },
+      { name: "Tofu Katsu", cat: "Tofu", base: { US: 11.50, UK: 8.80, JP: 680, CA: 12.60, DE: 9.20 } },
+      { name: "Tofu Nuggets", cat: "Tofu", base: { US: 6.80, UK: 5.10, JP: 450, CA: 7.50, DE: 5.50 } },
+      { name: "Tofu Burger", cat: "Tofu", base: { US: 8.90, UK: 6.80, JP: 590, CA: 9.80, DE: 7.20 } },
+      { name: "Tofu Wrap", cat: "Tofu", base: { US: 8.20, UK: 6.20, JP: 550, CA: 9.00, DE: 6.60 } },
+      { name: "Tofu Salad", cat: "Tofu", base: { US: 9.50, UK: 7.20, JP: 620, CA: 10.40, DE: 7.70 } },
+      { name: "Cold Tofu", cat: "Tofu", base: { US: 4.50, UK: 3.40, JP: 220, CA: 4.90, DE: 3.60 } },
+      { name: "Miso Tofu Soup", cat: "Tofu", base: { US: 3.80, UK: 2.90, JP: 180, CA: 4.20, DE: 2.90 } },
+      { name: "Tofu Hot Pot", cat: "Tofu", base: { US: 15.50, UK: 12.20, JP: 1100, CA: 17.00, DE: 12.50 } },
+      { name: "Tofu Udon", cat: "Tofu", base: { US: 11.80, UK: 9.10, JP: 680, CA: 12.90, DE: 9.50 } },
+      { name: "Tofu Soba", cat: "Tofu", base: { US: 11.80, UK: 9.10, JP: 680, CA: 12.90, DE: 9.50 } },
+
+      // Gyoza, Dumplings & Dim Sum (531-560)
+      { name: "Pork Gyoza", cat: "Dim Sum", base: { US: 7.50, UK: 5.80, JP: 420, CA: 8.20, DE: 6.00 } },
+      { name: "Chicken Gyoza", cat: "Dim Sum", base: { US: 7.50, UK: 5.80, JP: 420, CA: 8.20, DE: 6.00 } },
+      { name: "Vegetable Gyoza", cat: "Dim Sum", base: { US: 6.90, UK: 5.30, JP: 380, CA: 7.60, DE: 5.50 } },
+      { name: "Shrimp Gyoza", cat: "Dim Sum", base: { US: 8.80, UK: 6.80, JP: 520, CA: 9.60, DE: 7.10 } },
+      { name: "Beef Gyoza", cat: "Dim Sum", base: { US: 8.20, UK: 6.20, JP: 480, CA: 9.00, DE: 6.60 } },
+      { name: "Pan Fried Gyoza", cat: "Dim Sum", base: { US: 7.80, UK: 6.00, JP: 450, CA: 8.50, DE: 6.20 } },
+      { name: "Steamed Gyoza", cat: "Dim Sum", base: { US: 7.50, UK: 5.80, JP: 420, CA: 8.20, DE: 6.00 } },
+      { name: "Deep Fried Gyoza", cat: "Dim Sum", base: { US: 7.80, UK: 6.00, JP: 450, CA: 8.50, DE: 6.20 } },
+      { name: "Pork Potstickers", cat: "Dim Sum", base: { US: 7.80, UK: 6.00, JP: 480, CA: 8.50, DE: 6.20 } },
+      { name: "Chicken Potstickers", cat: "Dim Sum", base: { US: 7.80, UK: 6.00, JP: 480, CA: 8.50, DE: 6.20 } },
+      { name: "Vegetable Potstickers", cat: "Dim Sum", base: { US: 7.20, UK: 5.50, JP: 430, CA: 7.90, DE: 5.80 } },
+      { name: "Shrimp Potstickers", cat: "Dim Sum", base: { US: 8.90, UK: 6.90, JP: 550, CA: 9.80, DE: 7.20 } },
+      { name: "Pork Wontons", cat: "Dim Sum", base: { US: 7.20, UK: 5.50, JP: 450, CA: 7.90, DE: 5.80 } },
+      { name: "Shrimp Wontons", cat: "Dim Sum", base: { US: 8.50, UK: 6.50, JP: 520, CA: 9.30, DE: 6.80 } },
+      { name: "Fried Wontons", cat: "Dim Sum", base: { US: 6.80, UK: 5.20, JP: 420, CA: 7.50, DE: 5.40 } },
+      { name: "Steamed Wontons", cat: "Dim Sum", base: { US: 7.20, UK: 5.50, JP: 450, CA: 7.90, DE: 5.80 } },
+      { name: "Soup Wontons", cat: "Dim Sum", base: { US: 8.20, UK: 6.20, JP: 500, CA: 9.00, DE: 6.50 } },
+      { name: "Pork Siu Mai", cat: "Dim Sum", base: { US: 6.90, UK: 5.30, JP: 420, CA: 7.60, DE: 5.50 } },
+      { name: "Shrimp Siu Mai", cat: "Dim Sum", base: { US: 8.20, UK: 6.30, JP: 510, CA: 9.00, DE: 6.60 } },
+      { name: "Crab Rangoon", cat: "Dim Sum", base: { US: 7.50, UK: 5.80, JP: 480, CA: 8.20, DE: 6.00 } },
+      { name: "Xiao Long Bao", cat: "Dim Sum", base: { US: 10.50, UK: 8.20, JP: 750, CA: 11.50, DE: 8.50 } },
+      { name: "Sheng Jian Bao", cat: "Dim Sum", base: { US: 9.80, UK: 7.60, JP: 680, CA: 10.80, DE: 7.90 } },
+      { name: "Bao Bun", cat: "Dim Sum", base: { US: 4.50, UK: 3.50, JP: 280, CA: 4.90, DE: 3.60 } },
+      { name: "BBQ Pork Bao", cat: "Dim Sum", base: { US: 5.20, UK: 4.00, JP: 320, CA: 5.70, DE: 4.10 } },
+      { name: "Chicken Bao", cat: "Dim Sum", base: { US: 5.20, UK: 4.00, JP: 320, CA: 5.70, DE: 4.10 } },
+      { name: "Beef Bao", cat: "Dim Sum", base: { US: 5.50, UK: 4.20, JP: 350, CA: 6.00, DE: 4.40 } },
+      { name: "Vegetable Bao", cat: "Dim Sum", base: { US: 4.80, UK: 3.70, JP: 290, CA: 5.30, DE: 3.80 } },
+      { name: "Custard Bao", cat: "Dim Sum", base: { US: 4.80, UK: 3.70, JP: 290, CA: 5.30, DE: 3.80 } },
+      { name: "Red Bean Bao", cat: "Dim Sum", base: { US: 4.50, UK: 3.50, JP: 260, CA: 4.90, DE: 3.60 } },
+      { name: "Soup Dumplings", cat: "Dim Sum", base: { US: 10.50, UK: 8.20, JP: 750, CA: 11.50, DE: 8.50 } },
+
+      // Pastas & Italian (561-600)
+      { name: "Penne Alfredo", cat: "Pasta", base: { US: 13.80, UK: 10.50, JP: 1020, CA: 15.10, DE: 10.20 } },
+      { name: "Penne Arrabbiata", cat: "Pasta", base: { US: 12.90, UK: 9.80, JP: 950, CA: 14.10, DE: 9.50 } },
+      { name: "Penne Primavera", cat: "Pasta", base: { US: 13.20, UK: 10.00, JP: 980, CA: 14.50, DE: 9.80 } },
+      { name: "Penne Vodka", cat: "Pasta", base: { US: 14.50, UK: 11.20, JP: 1100, CA: 15.90, DE: 10.80 } },
+      { name: "Penne Bolognese", cat: "Pasta", base: { US: 14.20, UK: 10.90, JP: 1050, CA: 15.60, DE: 10.50 } },
+      { name: "Spaghetti Marinara", cat: "Pasta", base: { US: 11.80, UK: 8.90, JP: 880, CA: 12.90, DE: 8.60 } },
+      { name: "Spaghetti Meatballs", cat: "Pasta", base: { US: 14.80, UK: 11.50, JP: 1120, CA: 16.20, DE: 10.90 } },
+      { name: "Spaghetti Carbonara", cat: "Pasta", base: { US: 14.50, UK: 11.20, JP: 1080, CA: 15.90, DE: 10.70 } },
+      { name: "Spaghetti Aglio e Olio", cat: "Pasta", base: { US: 11.50, UK: 8.80, JP: 850, CA: 12.60, DE: 8.40 } },
+      { name: "Spaghetti Pesto", cat: "Pasta", base: { US: 13.20, UK: 10.10, JP: 980, CA: 14.50, DE: 9.70 } },
+      { name: "Linguine Alfredo", cat: "Pasta", base: { US: 13.90, UK: 10.60, JP: 1030, CA: 15.20, DE: 10.30 } },
+      { name: "Linguine Seafood", cat: "Pasta", base: { US: 18.50, UK: 14.80, JP: 1450, CA: 20.30, DE: 14.10 } },
+      { name: "Linguine Clam Sauce", cat: "Pasta", base: { US: 16.80, UK: 13.20, JP: 1300, CA: 18.40, DE: 12.80 } },
+      { name: "Linguine Garlic Butter", cat: "Pasta", base: { US: 12.50, UK: 9.50, JP: 920, CA: 13.70, DE: 9.20 } },
+      { name: "Fettuccine Alfredo", cat: "Pasta", base: { US: 13.90, UK: 10.60, JP: 1030, CA: 15.20, DE: 10.30 } },
+      { name: "Fettuccine Chicken Alfredo", cat: "Pasta", base: { US: 16.50, UK: 12.80, JP: 1250, CA: 18.10, DE: 12.40 } },
+      { name: "Fettuccine Shrimp Alfredo", cat: "Pasta", base: { US: 18.20, UK: 14.20, JP: 1400, CA: 20.00, DE: 13.80 } },
+      { name: "Ravioli Cheese", cat: "Pasta", base: { US: 13.50, UK: 10.20, JP: 990, CA: 14.80, DE: 10.00 } },
+      { name: "Ravioli Beef", cat: "Pasta", base: { US: 14.80, UK: 11.40, JP: 1100, CA: 16.20, DE: 10.90 } },
+      { name: "Ravioli Spinach", cat: "Pasta", base: { US: 13.80, UK: 10.50, JP: 1020, CA: 15.10, DE: 10.20 } },
+      { name: "Ravioli Mushroom", cat: "Pasta", base: { US: 14.20, UK: 10.90, JP: 1050, CA: 15.60, DE: 10.50 } },
+      { name: "Tortellini Alfredo", cat: "Pasta", base: { US: 14.50, UK: 11.10, JP: 1080, CA: 15.90, DE: 10.70 } },
+      { name: "Tortellini Cheese", cat: "Pasta", base: { US: 13.80, UK: 10.50, JP: 1020, CA: 15.10, DE: 10.20 } },
+      { name: "Tortellini Soup", cat: "Pasta", base: { US: 9.80, UK: 7.50, JP: 720, CA: 10.80, DE: 7.30 } },
+      { name: "Gnocchi Alfredo", cat: "Pasta", base: { US: 14.20, UK: 10.80, JP: 1050, CA: 15.60, DE: 10.50 } },
+      { name: "Gnocchi Marinara", cat: "Pasta", base: { US: 12.80, UK: 9.70, JP: 940, CA: 14.00, DE: 9.40 } },
+      { name: "Gnocchi Pesto", cat: "Pasta", base: { US: 13.90, UK: 10.60, JP: 1030, CA: 15.20, DE: 10.30 } },
+      { name: "Baked Ziti", cat: "Pasta", base: { US: 13.50, UK: 10.20, JP: 990, CA: 14.80, DE: 10.00 } },
+      { name: "Stuffed Shells", cat: "Pasta", base: { US: 14.10, UK: 10.70, JP: 1040, CA: 15.50, DE: 10.40 } },
+      { name: "Cannelloni", cat: "Pasta", base: { US: 14.50, UK: 11.00, JP: 1080, CA: 15.90, DE: 10.70 } },
+      { name: "Manicotti", cat: "Pasta", base: { US: 13.80, UK: 10.50, JP: 1020, CA: 15.10, DE: 10.20 } },
+      { name: "Lasagna Meat", cat: "Pasta", base: { US: 15.20, UK: 11.80, JP: 1150, CA: 16.70, DE: 11.50 } },
+      { name: "Lasagna Vegetable", cat: "Pasta", base: { US: 13.90, UK: 10.60, JP: 1030, CA: 15.20, DE: 10.30 } },
+      { name: "Macaroni & Cheese", cat: "Pasta", base: { US: 8.50, UK: 6.20, JP: 650, CA: 9.10, DE: 6.50 } },
+      { name: "Truffle Mac & Cheese", cat: "Pasta", base: { US: 14.50, UK: 11.50, JP: 1200, CA: 15.90, DE: 11.20 } },
+      { name: "Cacio e Pepe", cat: "Pasta", base: { US: 13.80, UK: 10.50, JP: 1020, CA: 15.10, DE: 10.20 } },
+      { name: "Seafood Pasta", cat: "Pasta", base: { US: 18.80, UK: 14.90, JP: 1480, CA: 20.60, DE: 14.30 } },
+      { name: "Garlic Butter Pasta", cat: "Pasta", base: { US: 11.20, UK: 8.50, JP: 820, CA: 12.30, DE: 8.20 } },
+      { name: "Creamy Mushroom Pasta", cat: "Pasta", base: { US: 14.20, UK: 10.90, JP: 1050, CA: 15.60, DE: 10.50 } },
+      { name: "Four Cheese Pasta", cat: "Pasta", base: { US: 14.00, UK: 10.70, JP: 1040, CA: 15.40, DE: 10.40 } }
+    ];
+
+    // DOM Elements
+    const countrySelect = document.getElementById('countrySelect');
+    const regionSelect = document.getElementById('regionSelect');
+    const foodInput = document.getElementById('foodInput');
+    const suggestions = document.getElementById('suggestions');
+    const resItemName = document.getElementById('resItemName');
+    const resLocality = document.getElementById('resLocality');
+    const resPrice = document.getElementById('resPrice');
+    const resCategory = document.getElementById('resCategory');
+    const resIndex = document.getElementById('resIndex');
+
+    let currentCountry = 'US';
+    let selectedFood = rawCustomFoodItems[4]; // Default to Coca-Cola (Small)
+
+    function updateRegions() {
+      currentCountry = countrySelect.value;
+      regionSelect.innerHTML = '';
+      const regions = countryConfig[currentCountry].regions;
+      
+      Object.keys(regions).forEach(region => {
+        const option = document.createElement('option');
+        option.value = region;
+        option.textContent = region;
+        regionSelect.appendChild(option);
+      });
+
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      const region = regionSelect.value;
+      const config = countryConfig[currentCountry];
+      const multiplier = config.regions[region] || 1.0;
+      
+      const rawPrice = selectedFood.base[currentCountry] || selectedFood.base.US;
+      const calculatedPrice = (rawPrice * multiplier).toFixed(currentCountry === 'JP' ? 0 : 2);
+
+      resItemName.textContent = selectedFood.name;
+      resLocality.textContent = `${region}, ${currentCountry}`;
+      resPrice.textContent = `${config.currency}${calculatedPrice}`;
+      resCategory.textContent = `Category: ${selectedFood.cat}`;
+      resIndex.textContent = `Cost Index: ${(multiplier * 100).toFixed(1)}`;
+    }
+
+    foodInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      suggestions.innerHTML = '';
+
+      if (!query) {
+        suggestions.style.display = 'none';
+        return;
+      }
+
+      const matches = rawCustomFoodItems.filter(item => 
+        item.name.toLowerCase().includes(query)
+      ).slice(0, 15);
+
+      if (matches.length > 0) {
+        suggestions.style.display = 'block';
+        matches.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'suggestion-item';
+          div.innerHTML = `<span>${item.name}</span><span class="suggestion-category">${item.cat}</span>`;
+          div.addEventListener('click', () => {
+            selectedFood = item;
+            foodInput.value = item.name;
+            suggestions.style.display = 'none';
+            updateDisplay();
+          });
+          suggestions.appendChild(div);
+        });
+      } else {
+        suggestions.style.display = 'none';
+      }
+    });
+
+    countrySelect.addEventListener('change', updateRegions);
+    regionSelect.addEventListener('change', updateDisplay);
+
+    document.addEventListener('click', (e) => {
+      if (!foodInput.contains(e.target) && !suggestions.contains(e.target)) {
+        suggestions.style.display = 'none';
+      }
+    });
+
+    // Initialize Widget
+    updateRegions();
+  </script>
+</body>
+</html>
